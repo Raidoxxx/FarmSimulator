@@ -1,0 +1,53 @@
+farms:
+  wheat:
+    price: 10
+    xp: 10
+    level: 0
+  carrot:
+    price: 6
+    xp: 10
+    level: 2
+  potato:
+    price: 8
+    xp: 10
+    level: 4
+  beetroot:
+    price: 16
+    xp: 10
+    level: 5
+  melon:
+    price: 25
+    xp: 10
+    level: 7
+  pumpkin:
+    price: 49
+    xp: 10
+    level: 10
+  sugar_cane:
+    price: 20
+    xp: 10
+    level: 15
+  cactus:
+    price: 11
+    xp: 10
+    level: 16
+  cocoa:
+    price: 35
+    xp: 10
+    level: 25
+  nether_wart:
+    price: 50
+    xp: 10
+    level: 45
+  chorus_fruit:
+    price: 120
+    xp: 10
+    level: 80
+  bamboo:
+    price: 20
+    xp: 10
+    level: 90
+  kelp:
+    price: 10
+    xp: 10
+    level: 100

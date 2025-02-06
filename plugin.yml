@@ -1,0 +1,7 @@
+name: FarmSimulator
+version: 0.0.1
+api:
+  - 5.0.0
+author: Raidoxx
+main: farm\Main
+description: BedWars plugin for Pocketmine
