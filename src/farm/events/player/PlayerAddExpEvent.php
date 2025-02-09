@@ -16,6 +16,11 @@ class PlayerAddExpEvent extends FarmSimulatorEvent
         $this->exp = $exp;
     }
 
+    public function getPlayer(): Player
+    {
+        return $this->player;
+    }
+
     public function getExp(): int
     {
         return $this->exp;

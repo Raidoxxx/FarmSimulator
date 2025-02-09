@@ -29,7 +29,7 @@ trait Camera
             if ($tickCount >= $ticksTotal) {
                 // Finaliza a animação e retorna o controle ao jogador.
                 $fadeCameraInstruction = new FadeCameraInstruction();
-                $fadeCameraInstruction->setTime(0.2, 2, 1);
+                $fadeCameraInstruction->setTime(0.2, 1, 1);
                 $fadeCameraInstruction->setColor(0, 0, 0);
                 $fadeCameraInstruction->send($player);
                 $clearCameraInstruction = new ClearCameraInstruction();

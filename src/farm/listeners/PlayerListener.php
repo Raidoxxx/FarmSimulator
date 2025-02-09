@@ -2,6 +2,8 @@
 
 namespace farm\listeners;
 
+use farm\events\player\PlayerAddExpEvent;
+use farm\events\player\PlayerLevelUp;
 use farm\player\FarmingPlayer;
 use pocketmine\event\block\BlockPlaceEvent;
 use pocketmine\event\Listener;
@@ -41,5 +43,19 @@ class PlayerListener implements Listener
                 $event->cancel();
             }
         }
+    }
+
+    public function onLevelUp(PlayerLevelUp $event): void
+    {
+        $player = $event->getPlayer();
+        $level = $event->getLevel();
+        $player->sendMessage("§l§e[§r§aFarm§eSimulator§l§e]§r §aParabéns! Você subiu para o nível {$level}!");
+    }
+
+    public function onExp(PlayerAddExpEvent $event): void
+    {
+        $player = $event->getPlayer();
+        $exp = $event->getExp();
+        $player->sendMessage("§l§e[§r§aFarm§eSimulator§l§e]§r §aVocê ganhou {$exp} de experiência!");
     }
 }

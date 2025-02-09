@@ -2,32 +2,28 @@
 
 namespace farm;
 
-use CameraAPI\CameraHandler;
-use farm\database\MySQLDatabase;
-use farm\listeners\PlayerListener;
-use farm\player\FarmWorld;
-use muqsit\invmenu\InvMenuHandler;
+use farm\database\models\Database;
+use farm\manager\PlayerManager;
+use farm\world\FarmWorld;
 use pocketmine\event\Listener;
 use pocketmine\plugin\PluginBase;
 use pocketmine\world\generator\GeneratorManager;
 
 class Main extends PluginBase implements Listener
 {
+
+    public static string $prefix = "§l§e[§r§aFarm§eSimulator§l§e]§r ";
     private static Main $instance;
-    private static string $prefix = "§l§e[§r§aFarm§eSimulator§l§e]§r ";
-    private MySQLDatabase $database;
+    private Database $database;
+    private Loader $loader;
+
+    private PlayerManager $playerManager;
 
     public function onEnable() :void
     {
         self::$instance = $this;
-        if(!InvMenuHandler::isRegistered()){
-            InvMenuHandler::register($this);
-        }
-        if(!CameraHandler::isRegistered())
-        {
-            CameraHandler::register($this);
-        }
-        $this->database = new MySQLDatabase('localhost', 'root', '', 'standoff');
+
+        $this->database = new Database();
 
         GeneratorManager::getInstance()->addGenerator(
             FarmWorld::class,
@@ -35,13 +31,24 @@ class Main extends PluginBase implements Listener
             fn() => null, true
         );
 
-        $this->getServer()->getCommandMap()->register("farm", new commands\FarmCommands());
-        $this->getServer()->getPluginManager()->registerEvents($this, $this);
-        $this->getServer()->getPluginManager()->registerEvents(new PlayerListener(), $this);
+        $this->loader = new Loader();
         $this->saveConfig();
 
         $this->getLogger()->info("§bFarm Simulator carregado!");
         $this->getFarmPrices();
+
+        $this->playerManager = new PlayerManager($this);
+    }
+
+    public function getPlayerManager(): PlayerManager
+    {
+        return $this->playerManager;
+    }
+
+
+    public function getLoader(): Loader
+    {
+        return $this->loader;
     }
 
     public function getFarms() : array
@@ -81,7 +88,7 @@ class Main extends PluginBase implements Listener
         return self::$instance;
     }
 
-    public function getDatabase(): MySQLDatabase
+    public function getDatabase(): Database
     {
         return $this->database;
     }

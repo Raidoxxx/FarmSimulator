@@ -1,8 +1,8 @@
 <?php
 
-namespace farm\player;
+namespace farm\world;
 
-use farm\player\populator\Island;
+use farm\world\populator\Island;
 use pocketmine\world\ChunkManager;
 use pocketmine\world\generator\Flat;
 

@@ -1,34 +1,29 @@
 <?php
 
-namespace farm\commands;
+namespace farm\commands\subcommands\missions;
 
 use farm\commands\subcommands\BaseSubCommand;
-use farm\commands\subcommands\island\IslandSubCommand;
-use farm\commands\subcommands\island\TeleportFarmSubCommand;
-use farm\commands\subcommands\missions\ListMissionsSubCommand;
-use farm\commands\subcommands\missions\MissionSubCommand;
 use farm\player\FarmingPlayer;
-use pocketmine\command\Command;
 use pocketmine\command\CommandSender;
-use pocketmine\permission\DefaultPermissions;
 use pocketmine\player\Player;
 
-
-class FarmCommands extends Command
+class MissionSubCommand extends BaseSubCommand
 {
+
     private array $subcommands = [];
 
     public function __construct()
     {
-        parent::__construct("farm", "Farm Simulator commands", "/farm <subcommand>", ["f"]);
-        $this->setPermission(DefaultPermissions::ROOT_USER);
-        $this->registerSubcommand(new MissionSubCommand());
-        $this->registerSubcommand(new IslandSubCommand());
-    }
+        parent::__construct(
+            "missions",
+            "Gerencie suas missões.",
+            "/farm missions <list|completed>",
+            ["m"]
+        );
 
-    public function registerSubcommand(BaseSubCommand $subcommand): void
-    {
-        $this->subcommands[] = $subcommand;
+        $this->registerSubcommand(new ListMissionsSubCommand());
+        $this->registerSubcommand(new CompletedMissionsSubCommand());
+        $this->registerSubcommand(new SelectMissionsSubCommand());
     }
 
     public function execute(CommandSender $sender, string $commandLabel, array $args): void
@@ -36,12 +31,13 @@ class FarmCommands extends Command
         if(!$sender instanceof Player) return;
         if(!$sender instanceof FarmingPlayer) return;
 
-        if(isset($args[0])){
-            $subcommand = $this->getSubcommand($args[0]);
+        if(isset($args[1])){
+            $subcommand = $this->getSubcommand($args[1]);
             if($subcommand !== null){
                 $subcommand->execute($sender, $commandLabel, $args);
             }else{
                 $sender->sendMessage("§l§e[§r§aFarm§eSimulator§l§e]§r §cSubcomando não encontrado.");
+                $this->sendHelp($sender);
             }
         }else{
             $this->sendHelp($sender);
@@ -56,15 +52,15 @@ class FarmCommands extends Command
         }
     }
 
-    public function getSubcommands(): array
+    public function registerSubcommand(BaseSubCommand $subcommand): void
     {
-        return $this->subcommands;
+        $this->subcommands[] = $subcommand;
     }
 
     public function getSubcommand(string $name): ?BaseSubCommand
     {
         foreach($this->subcommands as $subcommand){
-            if($subcommand->getName() === $name || in_array($name, $subcommand->getAliases(), true)){
+            if($subcommand->getName() === $name || in_array($name, $subcommand->getAliases())){
                 return $subcommand;
             }
         }

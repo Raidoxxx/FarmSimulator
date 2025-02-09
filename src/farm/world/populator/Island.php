@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace farm\player\populator;
+namespace farm\world\populator;
 
 use pocketmine\block\VanillaBlocks;
 use pocketmine\math\Vector3;

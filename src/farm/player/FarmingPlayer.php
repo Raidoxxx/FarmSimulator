@@ -2,30 +2,22 @@
 
 namespace farm\player;
 
+use farm\database\models\Database;
 use farm\events\player\PlayerAddExpEvent;
 use farm\events\player\PlayerLevelUp;
-use farm\listeners\PlayerListener;
 use farm\Main;
+use farm\manager\missions\Mission;
 use farm\particles\FloatingText;
+use farm\world\FarmWorld;
 use pocketmine\block\Block;
-use pocketmine\color\Color;
 use pocketmine\entity\Location;
-use pocketmine\event\player\PlayerItemUseEvent;
 use pocketmine\item\Item;
-use pocketmine\item\ItemUseResult;
-use pocketmine\item\Releasable;
 use pocketmine\math\Vector3;
 use pocketmine\nbt\tag\CompoundTag;
 use pocketmine\network\mcpe\NetworkSession;
-use pocketmine\network\mcpe\protocol\PlaySoundPacket;
-use pocketmine\network\mcpe\protocol\types\PlayerBlockActionStopBreak;
 use pocketmine\player\Player;
-use farm\database\DatabaseInterface;
 use pocketmine\player\PlayerInfo;
 use pocketmine\Server;
-use pocketmine\world\particle\DustParticle;
-use pocketmine\world\sound\NoteInstrument;
-use pocketmine\world\sound\NoteSound;
 use pocketmine\world\World;
 use pocketmine\world\WorldCreationOptions;
 
@@ -37,9 +29,10 @@ class FarmingPlayer extends Player
     private int $exp;
     private int $expToNextLevel;
     private int $farmSize;
-    private DatabaseInterface $database;
+    private Database $database;
     private bool $needsSave = false;
     private ?World $farmWorld = null;
+    private array $missions = [];
 
     const BREAK = 0;
     const PLACE = 1;
@@ -55,7 +48,7 @@ class FarmingPlayer extends Player
 
     public function initEntity(CompoundTag $nbt): void
     {
-        if($this->farmWorld){
+        if ($this->farmWorld) {
             $this->teleport($this->farmWorld->getSpawnLocation());
         }
         parent::initEntity($nbt);
@@ -65,7 +58,7 @@ class FarmingPlayer extends Player
     {
         Server::getInstance()->getWorldManager()->loadWorld($this->getName());
         $world = $this->getServer()->getWorldManager()->getWorldByName($this->getName());
-        if($world === null) {
+        if ($world === null) {
             $this->getServer()->getWorldManager()
                 ->generateWorld(
                     $this->getName(),
@@ -75,7 +68,6 @@ class FarmingPlayer extends Player
             $world = $this->getServer()->getWorldManager()->getWorldByName($this->getName());
         }
 
-        $world->setTime(6000);
         $world->setAutoSave(true);
         $world->setSpawnLocation(new Vector3(264, 71, 264));
         $this->farmWorld = $world;
@@ -83,21 +75,52 @@ class FarmingPlayer extends Player
 
     private function loadData(): void
     {
-        $data = $this->database->loadPlayerData($this->getUniqueId());
+        $data = $this->database->getRepository("players")->findByPlayerUuid($this->getUniqueId()->toString());
 
-        $this->chunks = isset($data['chunks']) ? json_decode($data['chunks'], true) : [];
-        $this->money = $data['money'] ?? 0;
-        $this->level = $data['level'] ?? 1;
-        $this->exp = $data['exp'] ?? 0;
-        $this->expToNextLevel = $data['expToNextLevel'] ?? $this->calculateExpToNextLevel();
-        $this->farmSize = $data['farmSize'] ?? 0;
+        if ($data === null) {
+            $this->chunks = ["16:16"];
+            $this->money = 0;
+            $this->level = 1;
+            $this->exp = 0;
+            $this->expToNextLevel = $this->calculateExpToNextLevel();
+            $this->farmSize = 0;
+        }else{
+            $this->chunks = isset($data['chunks']) ? json_decode($data['chunks'], true) : [];
+            $this->money = $data['money'] ?? 0;
+            $this->level = $data['level'] ?? 1;
+            $this->exp = $data['exp'] ?? 0;
+            $this->expToNextLevel = $data['expToNextLevel'] ?? $this->calculateExpToNextLevel();
+            $this->farmSize = $data['farmSize'] ?? 0;
+        }
+
+        $missionsData = $this->database->getRepository("player_missions")->findByPlayerUuid($this->getUniqueId()->toString());
+
+        if (!empty($missionsData)) {
+            $mission = Main::getInstance()->getPlayerManager()->getMission($missionsData['mission_id']);
+
+            if ($mission !== null) {
+                $mission->setProgress($missionsData['progress']);
+                $mission->setCompleted($missionsData['completed']);
+                $mission->setStartTime($missionsData['start_time']);
+                $this->missions[] = $mission;
+            }
+        }
+    }
+
+    /**
+     * @return Mission[]
+     */
+    public function getMissions(): array
+    {
+        return $this->missions;
     }
 
     public function saveData(bool $force = false): void
     {
-        if($this->needsSave || $force) {
+        if ($this->needsSave || $force) {
             $data = [
                 'uuid' => $this->getUniqueId()->toString(),
+                'name' => $this->getName(),
                 'chunks' => json_encode($this->chunks),
                 'money' => $this->money,
                 'level' => $this->level,
@@ -106,14 +129,27 @@ class FarmingPlayer extends Player
                 'farmSize' => $this->farmSize
             ];
 
-            $this->database->savePlayerData($data);
+            $this->database->getRepository("players")->save($data);
+
+            /** @var Mission $mission */
+            foreach ($this->missions as $mission) {
+                $missionsData = [
+                    'player_uuid' => $this->getUniqueId()->toString(),
+                    'mission_id' => $mission->getId(),
+                    'progress' => $mission->getProgress(),
+                    'completed' => $mission->isCompleted(),
+                    'start_time' => $mission->getStartTime()
+                ];
+
+                $this->database->getRepository("player_missions")->save($missionsData);
+            }
             $this->needsSave = false;
         }
     }
 
     private function calculateExpToNextLevel(): int
     {
-        return (int) (100 * pow(1.2, $this->level - 1));
+        return (int)(100 * pow(1.2, $this->level - 1));
     }
 
     // Getters e Setters com marcação para salvamento
@@ -131,7 +167,7 @@ class FarmingPlayer extends Player
     public function removeChunk(string $chunk): void
     {
         $key = array_search($chunk, $this->chunks);
-        if($key !== false) {
+        if ($key !== false) {
             unset($this->chunks[$key]);
             $this->needsSave = true;
         }
@@ -171,7 +207,7 @@ class FarmingPlayer extends Player
         $this->exp += $amount;
         $ev = new PlayerAddExpEvent($this, $amount);
         $ev->call();
-        while($this->exp >= $this->expToNextLevel) {
+        while ($this->exp >= $this->expToNextLevel) {
             $this->exp -= $this->expToNextLevel;
             $this->level++;
             $this->expToNextLevel = $this->calculateExpToNextLevel();
@@ -199,7 +235,7 @@ class FarmingPlayer extends Player
 
     public function breakBlock(Vector3 $pos): bool
     {
-        if($this->handleActionBlocks($pos, self::BREAK)) {
+        if ($this->handleActionBlocks($pos, self::BREAK)) {
             return parent::breakBlock($pos);
         }
 
@@ -208,7 +244,7 @@ class FarmingPlayer extends Player
 
     public function interactBlock(Vector3 $pos, int $face, Vector3 $clickOffset): bool
     {
-        if($this->handleActionBlocks($pos, self::INTERACT)) {
+        if ($this->handleActionBlocks($pos, self::INTERACT)) {
             return parent::interactBlock($pos, $face, $clickOffset);
         }
 
@@ -222,31 +258,31 @@ class FarmingPlayer extends Player
 
     public function handleActionBlocks(Vector3 $pos, int $action): bool
     {
-        if($this->farmWorld !== null && $this->getWorld() === $this->farmWorld) {
-            if($this->inChunk($pos)) {
-                if($action === self::BREAK) {
-                   if($this->isFarmBlock($this->getWorld()->getBlock($pos))) {
-                       if($this->iCanBreakFarm($this->getWorld()->getBlock($pos))){
-                           $this->handleBlockFarm($pos);
-                       }else{
-                           $this->noHasLevel($this->getWorld()->getBlock($pos));
-                           return false;
-                       }
-                   }
+        if ($this->farmWorld !== null && $this->getWorld() === $this->farmWorld) {
+            if ($this->inChunk($pos)) {
+                if ($action === self::BREAK) {
+                    if ($this->isFarmBlock($this->getWorld()->getBlock($pos))) {
+                        if ($this->iCanBreakFarm($this->getWorld()->getBlock($pos))) {
+                            $this->handleBlockFarm($pos);
+                        } else {
+                            $this->noHasLevel($this->getWorld()->getBlock($pos));
+                            return false;
+                        }
+                    }
                 }
 
-                if($action === self::INTERACT) {
-                    if($this->isFarmBlock($this->getWorld()->getBlock($pos))) {
-                        if($this->iCanBreakFarm($this->getWorld()->getBlock($pos))){
+                if ($action === self::INTERACT) {
+                    if ($this->isFarmBlock($this->getWorld()->getBlock($pos))) {
+                        if ($this->iCanBreakFarm($this->getWorld()->getBlock($pos))) {
                             return true;
-                        }else{
+                        } else {
                             $this->noHasLevel($this->getWorld()->getBlock($pos));
                             return false;
                         }
                     }
                 }
                 return true;
-            }else{
+            } else {
                 $this->sendPopup("§cVocê não pode interagir com blocos fora do seu Farm!");
                 return false;
             }
@@ -257,14 +293,14 @@ class FarmingPlayer extends Player
 
     public function inChunk(Vector3 $pos): bool
     {
-        if($this->farmWorld !== null) {
+        if ($this->farmWorld !== null) {
             $availableChunks = $this->getChunks();
             $chunkX = $pos->x >> 4;
             $chunkZ = $pos->z >> 4;
 
-            foreach($availableChunks as $chunk) {
+            foreach ($availableChunks as $chunk) {
                 $chunk = explode(":", $chunk);
-                if($chunk[0] == "$chunkX" && $chunk[1] == "$chunkZ") {
+                if ($chunk[0] == "$chunkX" && $chunk[1] == "$chunkZ") {
                     return true;
                 }
             }
@@ -275,9 +311,9 @@ class FarmingPlayer extends Player
 
     public function iCanBreakFarm(Block $block): bool
     {
-        if($this->isFarmBlock($block)) {
+        if ($this->isFarmBlock($block)) {
             $name = strtolower(str_replace([" ", "Block"], ["", ""], $block->getName()));
-            if(isset(Main::getInstance()->getFarmPrices()[$name])) {
+            if (isset(Main::getInstance()->getFarmPrices()[$name])) {
                 $level = Main::getInstance()->getFarmLevels()[$name];
 
                 if ($this->getLevel() < $level) {
@@ -320,7 +356,7 @@ class FarmingPlayer extends Player
     public function handleItem(Item $getItemInHand): bool
     {
         $name = strtolower(str_replace([" ", "Block"], ["", ""], $getItemInHand->getName()));
-        if(isset(Main::getInstance()->getFarmPrices()[$name])) {
+        if (isset(Main::getInstance()->getFarmPrices()[$name])) {
             $level = Main::getInstance()->getFarmLevels()[$name];
             if ($this->getLevel() < $level) {
                 $this->sendPopup("§cNível necessário {$level}");
@@ -329,5 +365,32 @@ class FarmingPlayer extends Player
         }
 
         return true;
+    }
+
+    public function addMission(Mission $mission): void
+    {
+        $this->missions[] = $mission;
+        $this->needsSave = true;
+    }
+
+    public function removeMission(Mission $mission): void
+    {
+        $key = array_search($mission, $this->missions);
+        if ($key !== false) {
+            unset($this->missions[$key]);
+            $this->needsSave = true;
+        }
+    }
+
+    public function hasMission(Mission $mission): bool
+    {
+        $missions = $this->getMissions();
+        foreach ($missions as $m) {
+            if ($m->getId() === $mission->getId()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
