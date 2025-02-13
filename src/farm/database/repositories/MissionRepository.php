@@ -114,11 +114,10 @@ class MissionRepository implements RepositoryInterface
         $stmt->close();
     }
 
-    public function findByPlayerUuid(string $playerUuid): ?array
+    public function findByPlayerUuid(string $playerUuid, callable $callback): void
     {
-        return null;
+        $callback([]);
     }
-
     /**
      * Remove uma missão do banco de dados.
      */

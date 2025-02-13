@@ -6,12 +6,12 @@ namespace farm\database\models;
 
 use farm\database\migrations\CreateMissionsTable;
 use farm\database\migrations\CreatePlayerMissionsTable;
-use farm\database\models\MySQLDatabase;
 use farm\database\migrations\CreatePlayersTable;
 use farm\database\repositories\MissionRepository;
 use farm\database\repositories\PlayerMissionRepository;
 use farm\database\repositories\PlayerRepository;
 use farm\database\repositories\RepositoryInterface;
+use farm\Main;
 use RuntimeException;
 
 class Database
@@ -20,7 +20,8 @@ class Database
     private array $repositories = [];
     public function __construct()
     {
-        $this->db = new MySQLDatabase('localhost', 'root', '', 'standoff');
+        $config = Main::getInstance()->getMysqlConfig();
+        $this->db = new MySQLDatabase($config['host'], $config['username'], $config['password'], $config['database']);
         $this->migrate();
 
         $this->repositories = [

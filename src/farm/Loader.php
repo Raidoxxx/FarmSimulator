@@ -3,20 +3,31 @@
 namespace farm;
 
 use CameraAPI\CameraHandler;
+use farm\mobs\entities\Creeper;
+use farm\mobs\entities\Skeleton;
+use farm\mobs\entities\Zombie;
+use farm\mobs\tasks\MobSpawnTask;
 use muqsit\invmenu\InvMenuHandler;
+use pocketmine\entity\EntityDataHelper as Helper;
+use pocketmine\entity\EntityFactory;
 use pocketmine\lang\KnownTranslationFactory as l10n;
+use pocketmine\nbt\tag\CompoundTag;
 use pocketmine\permission\DefaultPermissions;
 use pocketmine\permission\Permission;
+use pocketmine\world\World;
 
 class Loader
 {
     private array $listeners = [];
     private array $commands = [];
+
     public function __construct()
     {
         $this->loadListeners();
         $this->loadCommands();
         $this->loadHandlers();
+        $this->registerTasks();
+        $this->registerEntities();
     }
 
     public function loadHandlers(): void
@@ -92,5 +103,25 @@ class Loader
         }
 
         return DefaultPermissions::registerPermission(new Permission($permission, $description), [$operatorRoot]);
+    }
+
+    public function registerEntities(): void
+    {
+        EntityFactory::getInstance()->register(Zombie::class, function(World $world, CompoundTag $nbt) : Zombie{
+            return new Zombie(Helper::parseLocation($nbt, $world), $nbt);
+        }, ['Zombie', 'minecraft:zombie']);
+
+        EntityFactory::getInstance()->register(Skeleton::class, function(World $world, CompoundTag $nbt) : Skeleton{
+            return new Skeleton(Helper::parseLocation($nbt, $world), $nbt);
+        }, ['Skeleton', 'minecraft:skeleton']);
+
+        EntityFactory::getInstance()->register(Creeper::class, function(World $world, CompoundTag $nbt) : Creeper{
+            return new Creeper(Helper::parseLocation($nbt, $world), $nbt);
+        }, ['Creeper', 'minecraft:creeper']);
+    }
+
+    public function registerTasks(): void
+    {
+        Main::getInstance()->getScheduler()->scheduleRepeatingTask(new MobSpawnTask(), 20 * 5);
     }
 }

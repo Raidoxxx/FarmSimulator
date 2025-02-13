@@ -45,6 +45,10 @@ class Main extends PluginBase implements Listener
         return $this->playerManager;
     }
 
+    public function getMysqlConfig()
+    {
+        return $this->getConfig()->get("mysql");
+    }
 
     public function getLoader(): Loader
     {

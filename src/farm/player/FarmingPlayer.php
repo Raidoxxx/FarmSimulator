@@ -3,6 +3,7 @@
 namespace farm\player;
 
 use farm\database\models\Database;
+use farm\database\repositories\PlayerRepository;
 use farm\events\player\PlayerAddExpEvent;
 use farm\events\player\PlayerLevelUp;
 use farm\Main;
@@ -29,6 +30,7 @@ class FarmingPlayer extends Player
     private int $exp;
     private int $expToNextLevel;
     private int $farmSize;
+    private int $grow = 0;
     private Database $database;
     private bool $needsSave = false;
     private ?World $farmWorld = null;
@@ -75,36 +77,44 @@ class FarmingPlayer extends Player
 
     private function loadData(): void
     {
-        $data = $this->database->getRepository("players")->findByPlayerUuid($this->getUniqueId()->toString());
-
-        if ($data === null) {
-            $this->chunks = ["16:16"];
-            $this->money = 0;
-            $this->level = 1;
-            $this->exp = 0;
-            $this->expToNextLevel = $this->calculateExpToNextLevel();
-            $this->farmSize = 0;
-        }else{
-            $this->chunks = isset($data['chunks']) ? json_decode($data['chunks'], true) : [];
-            $this->money = $data['money'] ?? 0;
-            $this->level = $data['level'] ?? 1;
-            $this->exp = $data['exp'] ?? 0;
-            $this->expToNextLevel = $data['expToNextLevel'] ?? $this->calculateExpToNextLevel();
-            $this->farmSize = $data['farmSize'] ?? 0;
+        $repository = $this->database->getRepository("players");
+        if ($repository instanceof PlayerRepository) {
+            $repository->findByPlayerUuid($this->getUniqueId()->toString(),
+                function ($playerData) {
+                    if ($playerData !== null) {
+                        $this->chunks = json_decode($playerData['chunks'], true);
+                        $this->money = $playerData['money'];
+                        $this->level = $playerData['level'];
+                        $this->exp = $playerData['exp'];
+                        $this->expToNextLevel = $playerData['expToNextLevel'];
+                        $this->farmSize = $playerData['farmSize'];
+                    } else {
+                        $this->chunks = ["16:16"];
+                        $this->money = 0;
+                        $this->level = 1;
+                        $this->exp = 0;
+                        $this->expToNextLevel = 100;
+                        $this->farmSize = 0;
+                    }
+                }
+            );
         }
 
-        $missionsData = $this->database->getRepository("player_missions")->findByPlayerUuid($this->getUniqueId()->toString());
 
-        if (!empty($missionsData)) {
-            $mission = Main::getInstance()->getPlayerManager()->getMission($missionsData['mission_id']);
+        $this->database->getRepository("player_missions")->findByPlayerUuid($this->getUniqueId()->toString(),
+            function ($missionsData) {
+                if (!empty($missionsData)) {
+                    $mission = Main::getInstance()->getPlayerManager()->getMission($missionsData['mission_id']);
 
-            if ($mission !== null) {
-                $mission->setProgress($missionsData['progress']);
-                $mission->setCompleted($missionsData['completed']);
-                $mission->setStartTime($missionsData['start_time']);
-                $this->missions[] = $mission;
+                    if ($mission !== null) {
+                        $mission->setProgress($missionsData['progress']);
+                        $mission->setCompleted($missionsData['completed']);
+                        $mission->setStartTime($missionsData['start_time']);
+                        $this->missions[] = $mission;
+                    }
+                }
             }
-        }
+        );
     }
 
     /**
@@ -253,7 +263,7 @@ class FarmingPlayer extends Player
 
     public function useHeldItem(): bool
     {
-        return $this->handleItem($this->getInventory()->getItemInHand());
+        return $this->handleItem($this->getInventory()->getItemInHand()) && parent::useHeldItem();
     }
 
     public function handleActionBlocks(Vector3 $pos, int $action): bool
@@ -294,6 +304,9 @@ class FarmingPlayer extends Player
     public function inChunk(Vector3 $pos): bool
     {
         if ($this->farmWorld !== null) {
+            if ($this->getWorld()->getFolderName() !== $this->farmWorld->getFolderName()) {
+                return false;
+            }
             $availableChunks = $this->getChunks();
             $chunkX = $pos->x >> 4;
             $chunkZ = $pos->z >> 4;
@@ -393,4 +406,65 @@ class FarmingPlayer extends Player
 
         return false;
     }
+
+    public function getFarmWorld(): ?World
+    {
+        return $this->farmWorld;
+    }
+
+    public function getGrow(): int
+    {
+        return $this->grow;
+    }
+
+    public function addGrow(int $grow): void
+    {
+        $this->grow += $grow;
+    }
+
+    public function setGrow(int $grow): void
+    {
+        $this->grow = $grow;
+    }
+
+    public function upgradeChunk(): void
+    {
+        $currentChunks = $this->getChunks();
+        $currentCount = count($currentChunks);
+
+        $newTotal = $currentCount * 2 + 3;
+
+        $chunksToAdd = $newTotal - $currentCount;
+
+        $adjacentChunks = [];
+        foreach ($currentChunks as $chunkCoord) {
+            // Supondo que o formato seja "x:z"
+            list($x, $z) = explode(":", $chunkCoord);
+            $x = (int)$x;
+            $z = (int)$z;
+
+            $neighbors = [
+                ($x - 1) . ":" . $z, // Oeste
+                ($x + 1) . ":" . $z, // Leste
+                $x . ":" . ($z - 1), // Norte
+                $x . ":" . ($z + 1), // Sul
+            ];
+
+            foreach ($neighbors as $neighbor) {
+                if (!in_array($neighbor, $currentChunks) && !in_array($neighbor, $adjacentChunks)) {
+                    $adjacentChunks[] = $neighbor;
+                }
+            }
+        }
+
+        $chunksToActuallyAdd = array_slice($adjacentChunks, 0, $chunksToAdd);
+
+        foreach ($chunksToActuallyAdd as $chunkCoord) {
+            $this->addChunk($chunkCoord);
+        }
+
+        $this->setFarmSize($newTotal);
+        $this->sendPopup("§aSeu Farm foi expandido para {$newTotal} chunks!");
+    }
+
 }

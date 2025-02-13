@@ -96,18 +96,22 @@ class PlayerRepository implements RepositoryInterface
      * Busca um jogador pelo UUID do jogador.
      */
 
-    public function findByPlayerUuid(string $playerUuid): ?array
-    {
+    public function findByPlayerUuid(string $playerUuid, callable $callback): void {
         $sql = "SELECT * FROM {$this->table} WHERE uuid = ?";
         $stmt = $this->connection->prepare($sql);
         $stmt->bind_param("s", $playerUuid);
         $stmt->execute();
         $result = $stmt->get_result();
-        $player = $result->fetch_assoc();
-        $stmt->close();
 
-        return $player ?: null;
+        if ($result->num_rows > 0) {
+            $player = $result->fetch_assoc();
+            $callback($player);
+        } else {
+            $callback(null);
+        }
+        $stmt->close();
     }
+
 
     /**
      * Remove um jogador do banco de dados.

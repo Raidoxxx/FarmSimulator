@@ -5,6 +5,7 @@ namespace farm\commands;
 use farm\commands\subcommands\BaseSubCommand;
 use farm\commands\subcommands\island\IslandSubCommand;
 use farm\commands\subcommands\island\TeleportFarmSubCommand;
+use farm\commands\subcommands\level\LevelSubCommand;
 use farm\commands\subcommands\missions\ListMissionsSubCommand;
 use farm\commands\subcommands\missions\MissionSubCommand;
 use farm\player\FarmingPlayer;
@@ -24,6 +25,7 @@ class FarmCommands extends Command
         $this->setPermission(DefaultPermissions::ROOT_USER);
         $this->registerSubcommand(new MissionSubCommand());
         $this->registerSubcommand(new IslandSubCommand());
+        $this->registerSubcommand(new LevelSubCommand());
     }
 
     public function registerSubcommand(BaseSubCommand $subcommand): void

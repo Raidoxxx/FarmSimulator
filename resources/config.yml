@@ -51,3 +51,8 @@ farms:
     price: 10
     xp: 10
     level: 100
+mysql:
+    host: sd-br7.blazebr.com:3306
+    database: s7086_farm
+    username: u7086_wgheqC3BSm
+    password: 'xxXdj@+dtXyysTYH.bkfrGWy'

@@ -14,7 +14,7 @@ interface RepositoryInterface
     /**
      * Busca um registro pelo UUID do jogador.
      */
-    public function findByPlayerUuid(string $playerUuid): ?array;
+    public function findByPlayerUuid(string $playerUuid, callable $callback): void;
 
     /**
      * Retorna todos os registros da tabela.

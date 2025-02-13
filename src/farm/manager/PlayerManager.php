@@ -8,6 +8,7 @@ use farm\player\FarmingPlayer;
 use JsonException;
 use pocketmine\block\VanillaBlocks;
 use pocketmine\event\block\BlockBreakEvent;
+use pocketmine\player\Player;
 use pocketmine\utils\Config;
 
 class PlayerManager
@@ -15,10 +16,43 @@ class PlayerManager
     private static int $ids = 0;
     /** @var Mission[] */
     private array $missions = [];
+
+    private Config $player_infos;
+
+    /**
+     * @throws JsonException
+     */
     public function __construct(
         private readonly Main $plugin
     ) {
+        $this->player_infos = new Config($this->plugin->getDataFolder() . 'player_infos.json', Config::JSON);
         $this->registerMissions();
+    }
+
+    private function registerPlayerInfos(Player $player): void
+    {
+        $this->player_infos->set($player->getName(), [
+            'first_tp_island' => false,
+            'first_join' => time(),
+            'last_join' => time(),
+            'vip' => false,
+            'vip_expires' => 0
+            ]);
+        $this->player_infos->save();
+    }
+
+    public function getPlayerInfos(Player $player): array
+    {
+        if(!$this->player_infos->exists($player->getName())) {
+            $this->registerPlayerInfos($player);
+        }
+        return $this->player_infos->get($player->getName());
+    }
+
+    public function setPlayerInfos(Player $player, array $data): void
+    {
+        $this->player_infos->set($player->getName(), $data);
+        $this->player_infos->save();
     }
 
     /**

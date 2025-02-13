@@ -36,7 +36,8 @@ class PlayerMissionRepository implements RepositoryInterface
     /**
      * Busca uma missão específica de um jogador pelo UUID.
      */
-    public function findByPlayerUuid(string $playerUuid): ?array{
+    public function findByPlayerUuid(string $playerUuid, callable $callback): void
+    {
         $sql = "SELECT * FROM {$this->table} WHERE player_uuid = ?";
         $stmt = $this->connection->prepare($sql);
         $stmt->bind_param("s", $playerUuid);
@@ -45,7 +46,7 @@ class PlayerMissionRepository implements RepositoryInterface
         $mission = $result->fetch_assoc();
         $stmt->close();
 
-        return $mission ?: null;
+        $callback($mission);
     }
 
     /**

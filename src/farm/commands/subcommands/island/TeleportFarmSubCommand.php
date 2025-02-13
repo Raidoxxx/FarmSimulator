@@ -33,11 +33,14 @@ class TeleportFarmSubCommand extends BaseSubCommand
         if(Server::getInstance()->getWorldManager()->isWorldLoaded($sender->getName())){
             $world = Server::getInstance()->getWorldManager()->getWorldByName($sender->getName());
             if($world === null) {
-                $sender->sendMessage("§l§e[§r§aFarm§eSimulator§l§e]§r §cVocê não possui um Farm!");
+                $sender->sendMessage("§l§e[§r§aFarm§eS  imulator§l§e]§r §cVocê não possui um Farm!");
                 return;
             }
 
             $sender->teleport($world->getSpawnLocation());
+
+            $sender->sendMessage("§l§e[§r§aFarm§eSimulator§l§e]§r §aBem-vindo ao Farm Simulator!");
+            $sender->sendTitle("§l§eBem-vindo", "§eà sua fazenda!", 20, 40, 20);
             $this->startIntro($sender, new Vector3(264, 75, 264));
         }else{
             $sender->sendMessage("§cOcorreu um erro!");
